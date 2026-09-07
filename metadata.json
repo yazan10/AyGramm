@@ -1,0 +1,7 @@
+{
+  "name": "AyGram - منصة التواصل والتغريد العربي",
+  "description": "منصة تواصل اجتماعي وتغريد عربي متكاملة مع متجر للمبدعين، نظام توثيق وحظر، حفظ الجلسات بالكوكيز، وإشراف متطور. المطور والمالك: يزن السلاق.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
