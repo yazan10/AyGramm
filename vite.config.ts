@@ -8,6 +8,10 @@ const DB_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'database.json');
 
 const memoryStore = new Map<string, any>();
+// Safely read Supabase config with fallbacks
+const supabaseImportMeta = import.meta.env;
+const supabaseUrl = supabaseImportMeta?.VITE_SUPABASE_URL ?? supabaseImportMeta?.VITE_API_BASE_URL ?? 'https://uuksljwepytkbggbbrkz.supabase.co';
+const supabaseAnonKey = supabaseImportMeta?.VITE_SUPABASE_ANON_KEY ?? supabaseImportMeta?.VITE_API_BASE_URL ?? 'sb_publishable_YE74x_Krw2RCtSUCOsdSKg_j548uO2D';
 const CLOUD_URL = 'https://api.restful-api.dev/objects/ff808181a067127101a07ba6f6c234b8';
 let lastViteCloudSync = 0;
 
