@@ -81,7 +81,7 @@ export const ProfileOptionsMenu: React.FC<ProfileOptionsMenuProps> = ({
   if (!isOpen) return null;
 
   const isOwnProfile = currentUser && currentUser.id === user.id;
-  const isFollowing = currentUser ? currentUser.following.includes(user.id) : false;
+  const isFollowing = currentUser ? currentUser.following?.includes(user.id) || false : false;
   const isBlocked = currentUser?.blockedUserIds?.includes(user.id);
   const isCloseFriend = currentUser?.closeFriends?.includes(user.id);
   const isStoryHidden = currentUser?.hiddenStoryUserIds?.includes(user.id);
@@ -845,7 +845,7 @@ export const ProfileOptionsMenu: React.FC<ProfileOptionsMenuProps> = ({
               <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
                 <span className="text-[10px] text-stone-400 block mb-1">عدد المتابعين</span>
                 <span className="text-lg font-black text-stone-900 font-mono">
-                  {user.followers.length}
+                  {user.followers?.length || 0}
                 </span>
               </div>
 

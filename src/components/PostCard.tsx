@@ -57,7 +57,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onOpenReport, onOpenAu
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const authorUser = users.find((u) => u.id === post.userId);
-  const isLiked = currentUser ? post.likes.includes(currentUser.id) : false;
+  const likesList = post.likes || [];
+  const isLiked = currentUser ? likesList.includes(currentUser.id) : false;
   const retweetsList = post.retweets || [];
   const isRetweeted = currentUser ? retweetsList.includes(currentUser.id) : false;
   const isSaved = savedPostIds.includes(post.id);
@@ -381,7 +382,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onOpenReport, onOpenAu
           <HeartLikeButton
             id={post.id}
             isLiked={isLiked}
-            likesCount={post.likes.length}
+            likesCount={likesList.length}
             onToggle={handleLike}
           />
 

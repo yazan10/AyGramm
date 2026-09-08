@@ -61,7 +61,11 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onOpenReport, onOpenAu
   // Tab Filtering
   let displayPosts = sortedByCountry;
   if (activeTab === 'trending') {
-    displayPosts = [...sortedByCountry].sort((a, b) => (b.likes.length + (b.retweets?.length || 0)) - (a.likes.length + (a.retweets?.length || 0)));
+    displayPosts = [...sortedByCountry].sort(
+      (a, b) =>
+        ((b.likes?.length || 0) + (b.retweets?.length || 0)) -
+        ((a.likes?.length || 0) + (a.retweets?.length || 0))
+    );
   } else if (activeTab === 'arab48') {
     displayPosts = visiblePosts.filter(
       (p) =>
@@ -225,7 +229,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onOpenReport, onOpenAu
               </p>
 
               <div className="flex items-center justify-between pt-2 border-t border-stone-200/60 text-[11px] text-stone-500">
-                <span>{cUser.followers.length} متابع</span>
+                <span>{cUser.followers?.length || 0} متابع</span>
                 <span className="text-[#0F3D2E] font-bold group-hover:underline flex items-center gap-1">
                   <span>زيارة</span>
                   <ArrowRight className="w-3 h-3 rotate-180" />

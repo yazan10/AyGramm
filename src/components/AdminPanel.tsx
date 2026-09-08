@@ -44,8 +44,10 @@ import {
   Radio,
   Layers,
   DollarSign,
-  MessageCircle
+  MessageCircle,
+  Copy
 } from 'lucide-react';
+import { AYGRAM_SUPABASE_SQL } from '../utils/supabaseSchema';
 import { useAyGram } from '../context/AyGramContext';
 import { OWNER_ACCOUNT_ID } from '../context/AyGramContext';
 import { BaubleToggle } from './BaubleToggle';
@@ -143,6 +145,10 @@ export const AdminPanel: React.FC = () => {
   const [maintEnabled, setMaintEnabled] = useState(settings.maintenanceMode);
   const [maintMessage, setMaintMessage] = useState(settings.maintenanceMessage);
   const [maintSuccess, setMaintSuccess] = useState('');
+
+  // Supabase SQL helper state
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
 
   // Tabs horizontal scroll navigation
   const tabsContainerRef = React.useRef<HTMLDivElement>(null);
@@ -718,7 +724,108 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
 
+            {/* Supabase SQL Fast Action Card */}
+            <div className="bg-gradient-to-r from-emerald-900 to-[#0F3D2E] text-white p-5 rounded-[20px] shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center shrink-0">
+                    <Database className="w-5 h-5 text-[#D4AF37]" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      كود إعداد قاعدة بيانات Supabase (SQL Script)
+                    </h4>
+                    <p className="text-xs text-emerald-200/80">
+                      عند فتح نافذة الـ SQL Editor في Supabase وتجدها فارغة، انسخ هذا الكود والصقه هناك ثم اضغط Run
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(AYGRAM_SUPABASE_SQL);
+                      setCopiedSql(true);
+                      setTimeout(() => setCopiedSql(false), 3500);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#D4AF37] hover:bg-[#c49f2e] text-[#0F3D2E] transition-all flex items-center gap-2 shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {copiedSql ? <Check className="w-4 h-4 text-[#0F3D2E]" /> : <Copy className="w-4 h-4 text-[#0F3D2E]" />}
+                    <span>{copiedSql ? 'تم النسخ بنجاح! 📋' : 'نسخ كود الـ SQL بالكامل'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSqlModal(true)}
+                    className="px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>معاينة الكود</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
+
+          {/* SQL Preview Modal */}
+          {showSqlModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+              <div className="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-2xl border border-stone-200 flex flex-col max-h-[85vh] space-y-4">
+                <div className="flex items-center justify-between border-b pb-3 border-stone-100">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-5 h-5 text-[#0F3D2E]" />
+                    <h3 className="text-base font-bold text-[#0F3D2E]">كود تهيئة قاعدة بيانات Supabase</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSqlModal(false)}
+                    className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="text-xs text-stone-600 bg-amber-50 p-3 rounded-xl border border-amber-200">
+                  <p className="font-bold text-amber-900 mb-1">📌 خطوات التشغيل السريعة:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-amber-800">
+                    <li>اضغط على زر <strong>نسخ الكود بالكامل</strong> أدناه.</li>
+                    <li>افتح لوحة تحكم <strong>Supabase</strong> ثم اضغط على <strong>SQL Editor</strong>.</li>
+                    <li>الصق الكود في الصفحة الفارغة واضغط الزر الأخضر <strong>Run</strong> أسفل الشاشة.</li>
+                  </ol>
+                </div>
+
+                <div className="flex-1 overflow-auto rounded-xl bg-stone-900 p-4 border border-stone-800">
+                  <pre className="text-[11px] font-mono text-emerald-400 whitespace-pre-wrap dir-ltr text-left">
+                    {AYGRAM_SUPABASE_SQL}
+                  </pre>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowSqlModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition"
+                  >
+                    إغلاق
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(AYGRAM_SUPABASE_SQL);
+                      setCopiedSql(true);
+                      setTimeout(() => setCopiedSql(false), 3500);
+                    }}
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#0F3D2E] text-white hover:bg-[#14533D] transition flex items-center gap-2 shadow-sm"
+                  >
+                    {copiedSql ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedSql ? 'تم النسخ بنجاح!' : 'نسخ الكود بالكامل'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

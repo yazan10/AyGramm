@@ -269,6 +269,21 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Helper to sanitize user object arrays
+  const sanitizeUserArrays = (u: any): User => {
+    if (!u || typeof u !== 'object') return u;
+    return {
+      ...u,
+      followers: Array.isArray(u.followers) ? u.followers : [],
+      following: Array.isArray(u.following) ? u.following : [],
+      closeFriends: Array.isArray(u.closeFriends) ? u.closeFriends : [],
+      hiddenStoryUserIds: Array.isArray(u.hiddenStoryUserIds) ? u.hiddenStoryUserIds : [],
+      blockedUserIds: Array.isArray(u.blockedUserIds) ? u.blockedUserIds : [],
+      restrictedUserIds: Array.isArray(u.restrictedUserIds) ? u.restrictedUserIds : [],
+      mutedUserIds: Array.isArray(u.mutedUserIds) ? u.mutedUserIds : [],
+    };
+  };
+
   // Real user accounts + always keep owner and seed accounts present
   const hydrateUsers = (): User[] => {
     const stored = loadLS<User[]>('aygram_users', []);
@@ -279,7 +294,12 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!ids.has(seed.id)) merged.push(seed);
     });
     if (!merged.some((u) => u.id === OWNER_ACCOUNT_ID)) merged.unshift(OWNER_ACCOUNT);
-    return merged.map((u) => (u.id === OWNER_ACCOUNT_ID ? { ...OWNER_ACCOUNT, ...u, id: OWNER_ACCOUNT_ID, password: 'jana@#5Y', isAdmin: true, role: 'owner' } : u));
+    return merged.map((u) => {
+      const base = u.id === OWNER_ACCOUNT_ID
+        ? { ...OWNER_ACCOUNT, ...u, id: OWNER_ACCOUNT_ID, password: 'jana@#5Y', isAdmin: true, role: 'owner' }
+        : u;
+      return sanitizeUserArrays(base);
+    });
   };
 
   const [users, setUsers] = useState<User[]>(() => hydrateUsers());
@@ -288,12 +308,12 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const fromLS = localStorage.getItem('aygram_current_user');
       if (fromLS) {
         const parsed = JSON.parse(fromLS);
-        if (parsed && typeof parsed === 'object' && parsed.id) return parsed as User;
+        if (parsed && typeof parsed === 'object' && parsed.id) return sanitizeUserArrays(parsed);
       }
       const fromSession = sessionStorage.getItem('aygram_session_user');
       if (fromSession) {
         const parsed = JSON.parse(fromSession);
-        if (parsed && typeof parsed === 'object' && parsed.id) return parsed as User;
+        if (parsed && typeof parsed === 'object' && parsed.id) return sanitizeUserArrays(parsed);
       }
       return null;
     } catch {
@@ -856,7 +876,18 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setUsers((prev) => {
           const map = new Map(prev.map((u) => [u.id, u]));
           for (const ru of remoteUsers as User[]) {
-            map.set(ru.id, ru);
+            const existing = map.get(ru.id) || {};
+            map.set(ru.id, {
+              ...existing,
+              ...ru,
+              followers: Array.isArray(ru.followers) ? ru.followers : (Array.isArray((existing as any).followers) ? (existing as any).followers : []),
+              following: Array.isArray(ru.following) ? ru.following : (Array.isArray((existing as any).following) ? (existing as any).following : []),
+              closeFriends: Array.isArray(ru.closeFriends) ? ru.closeFriends : [],
+              hiddenStoryUserIds: Array.isArray(ru.hiddenStoryUserIds) ? ru.hiddenStoryUserIds : [],
+              blockedUserIds: Array.isArray(ru.blockedUserIds) ? ru.blockedUserIds : [],
+              restrictedUserIds: Array.isArray(ru.restrictedUserIds) ? ru.restrictedUserIds : [],
+              mutedUserIds: Array.isArray(ru.mutedUserIds) ? ru.mutedUserIds : [],
+            });
           }
           return Array.from(map.values());
         });
@@ -1556,13 +1587,14 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const toggleFollow = (targetUserId: string) => {
     if (!currentUser || currentUser.id === targetUserId) return;
-    const isFollowing = currentUser.following.includes(targetUserId);
+    const currentFollowing = Array.isArray(currentUser.following) ? currentUser.following : [];
+    const isFollowing = currentFollowing.includes(targetUserId);
 
     const updatedCurrentUser = {
       ...currentUser,
       following: isFollowing
-        ? currentUser.following.filter((id) => id !== targetUserId)
-        : [...currentUser.following, targetUserId],
+        ? currentFollowing.filter((id) => id !== targetUserId)
+        : [...currentFollowing, targetUserId],
     };
 
     setCurrentUser(updatedCurrentUser);
@@ -1570,9 +1602,10 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       prev.map((u) => {
         if (u.id === currentUser.id) return updatedCurrentUser;
         if (u.id === targetUserId) {
+          const userFollowers = Array.isArray(u.followers) ? u.followers : [];
           const updatedFollowers = isFollowing
-            ? u.followers.filter((id) => id !== currentUser.id)
-            : [...u.followers, currentUser.id];
+            ? userFollowers.filter((id) => id !== currentUser.id)
+            : [...userFollowers, currentUser.id];
           return { ...u, followers: updatedFollowers };
         }
         return u;

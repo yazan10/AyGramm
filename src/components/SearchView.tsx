@@ -221,7 +221,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onOpenReport, onOpenAuth
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {matchedUsers.slice(0, activeTab === 'all' ? 4 : 20).map((u) => {
-              const isFollowing = currentUser?.following.includes(u.id);
+              const isFollowing = currentUser?.following?.includes(u.id) || false;
               return (
                 <div
                   key={u.id}

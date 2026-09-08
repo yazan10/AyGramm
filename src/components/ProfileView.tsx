@@ -63,7 +63,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onOpenReport, on
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
   const isOwnProfile = currentUser && currentUser.id === user.id;
-  const isFollowing = currentUser ? currentUser.following.includes(user.id) : false;
+  const isFollowing = currentUser ? currentUser.following?.includes(user.id) || false : false;
   const isBlocked = currentUser?.blockedUserIds?.includes(user.id);
   const isCloseFriend = currentUser?.closeFriends?.includes(user.id);
   const isStoryHidden = currentUser?.hiddenStoryUserIds?.includes(user.id);
@@ -272,11 +272,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onOpenReport, on
                 <span className="text-stone-600">منشورات</span>
               </div>
               <div>
-                <span className="font-bold text-stone-900 font-mono text-base ms-1">{user.followers.length}</span>
+                <span className="font-bold text-stone-900 font-mono text-base ms-1">{user.followers?.length || 0}</span>
                 <span className="text-stone-600">متابعين</span>
               </div>
               <div>
-                <span className="font-bold text-stone-900 font-mono text-base ms-1">{user.following.length}</span>
+                <span className="font-bold text-stone-900 font-mono text-base ms-1">{user.following?.length || 0}</span>
                 <span className="text-stone-600">يتابعهم</span>
               </div>
               {userProducts.length > 0 && (
@@ -361,11 +361,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onOpenReport, on
                 <span className="text-[11px] text-stone-500">منشورات</span>
               </div>
               <div>
-                <span className="font-bold text-stone-900 font-mono text-base block">{user.followers.length}</span>
+                <span className="font-bold text-stone-900 font-mono text-base block">{user.followers?.length || 0}</span>
                 <span className="text-[11px] text-stone-500">متابعين</span>
               </div>
               <div>
-                <span className="font-bold text-stone-900 font-mono text-base block">{user.following.length}</span>
+                <span className="font-bold text-stone-900 font-mono text-base block">{user.following?.length || 0}</span>
                 <span className="text-[11px] text-stone-500">يتابعهم</span>
               </div>
             </div>

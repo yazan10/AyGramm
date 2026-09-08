@@ -19,6 +19,10 @@
       "createdAt": "2024-01-01T00:00:00.000Z",
       "verified": true,
       "verificationBadge": "gold"
+    },
+    {
+      "id": "u1",
+      "fullName": "مستخدم"
     }
   ],
   "aygram/aygram_posts": [
@@ -35,13 +39,35 @@
       "isApproved": true,
       "isBlocked": false,
       "createdAt": "2024-01-01T00:00:00.000Z",
-      "tags": ["aygram", "ترحيب", "تطوير_عربي"],
+      "tags": [
+        "aygram",
+        "ترحيب",
+        "تطوير_عربي"
+      ],
       "location": "القدس، فلسطين",
       "userNationality": "فلسطيني"
+    },
+    {
+      "id": "p1",
+      "content": "مرحبا بالجميع"
     }
   ],
   "aygram/aygram_products": [],
-  "aygram/aygram_stories": [],
+  "aygram/aygram_stories": [
+    {
+      "id": "story_owner_1",
+      "userId": "user_owner_aygram",
+      "username": "y",
+      "userAvatar": "data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 fill=%27%230F3D2E%27 rx=%2750%27/%3E%3Cpath d=%27M50 12c-16 0-28 12-28 30 0 24 22 40 28 46 6-6 28-22 28-46 0-18-12-30-28-30Zm0 12c9 0 16 8 16 18 0 12-10 22-16 28-6-6-16-16-16-28 0-10 7-18 16-18Z%27 fill=%27%23D4AF37%27/%3E%3Ctext x=%2750%27 y=%2760%27 font-size=%2728%27 font-family=%27system-ui%27 font-weight=%27bold%27 text-anchor=%27middle%27 fill=%27%230F3D2E%27%3Ey%3C/text%3E%3C/svg%3E",
+      "media": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80",
+      "type": "image",
+      "caption": "نواصل العمل لتقديم تجربة تواصل عربية غير مسبوقة!",
+      "expiresAt": "2026-09-09T11:39:46.421Z",
+      "createdAt": "2026-09-08T11:39:46.421Z",
+      "viewsCount": 0,
+      "seenBy": []
+    }
+  ],
   "aygram/aygram_channels": [],
   "aygram/aygram_channel_posts": [],
   "aygram/aygram_settings": {
@@ -67,7 +93,7 @@
       "isActive": true
     }
   ],
-  "aygram_current_user": {
+  "aygram/aygram_current_user": {
     "id": "user_owner_aygram",
     "fullName": "يزن السلاق",
     "username": "y",
