@@ -131,7 +131,7 @@ export const AdminPanel: React.FC = () => {
 
   // Rejection modal state
   const [rejectingTarget, setRejectingTarget] = useState<{
-    type: 'post' | 'product';
+    type: 'post' | 'product' | 'password_reset';
     id: string;
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState('مخالفة لسياسات وشروط الاستخدام للمنصة');
@@ -252,8 +252,10 @@ export const AdminPanel: React.FC = () => {
     if (!rejectingTarget) return;
     if (rejectingTarget.type === 'post') {
       rejectPost(rejectingTarget.id, rejectionReason);
-    } else {
+    } else if (rejectingTarget.type === 'product') {
       rejectProduct(rejectingTarget.id, rejectionReason);
+    } else if (rejectingTarget.type === 'password_reset') {
+      rejectPasswordReset(rejectingTarget.id, rejectionReason);
     }
     setRejectingTarget(null);
     setRejectionReason('مخالفة لسياسات وشروط الاستخدام للمنصة');
@@ -2121,10 +2123,8 @@ export const AdminPanel: React.FC = () => {
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
                       <button
                         onClick={() => {
-                          const reason = prompt('يرجى ذكر سبب الرفض (اختياري):', 'لم يتم تأكيد هوية الملكية بشكل كافٍ');
-                          if (reason !== null) {
-                            rejectPasswordReset(req.id, reason);
-                          }
+                          setRejectionReason('لم يتم تأكيد هوية الملكية بشكل كافٍ');
+                          setRejectingTarget({ type: 'password_reset', id: req.id });
                         }}
                         className="py-2 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition-colors cursor-pointer"
                       >
@@ -2133,9 +2133,7 @@ export const AdminPanel: React.FC = () => {
 
                       <button
                         onClick={() => {
-                          if (confirm(`هل أنت متأكد من الموافقة على طلب استعادة الحساب @${req.username} واعتماد كلمة المرور؟`)) {
-                            approvePasswordReset(req.id);
-                          }
+                          approvePasswordReset(req.id);
                         }}
                         className="py-2 px-5 rounded-xl bg-[#0F3D2E] hover:bg-[#155A44] text-[#D4AF37] font-bold text-xs transition-colors shadow-aygram cursor-pointer flex items-center gap-1.5"
                       >
@@ -2156,10 +2154,12 @@ export const AdminPanel: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-[#FCF9F0] rounded-[16px] max-w-sm w-full p-5 border border-[#EFE9D9] shadow-aygram-md space-y-4">
             <h3 className="text-sm font-bold text-[#0F3D2E]">
-              سبب رفض {rejectingTarget.type === 'post' ? 'المنشور' : 'المنتج'}
+              سبب رفض {rejectingTarget.type === 'post' ? 'المنشور' : rejectingTarget.type === 'product' ? 'المنتج' : 'طلب استعادة كلمة المرور'}
             </h3>
             <p className="text-xs text-[#7A7A7A]">
-              سيتم إشعار العضو بسبب الرفض لتمكينه من تعديل المحتوى وفق الضوابط.
+              {rejectingTarget.type === 'password_reset'
+                ? 'يرجى كتابة سبب رفض الطلب للعضو.'
+                : 'سيتم إشعار العضو بسبب الرفض لتمكينه من تعديل المحتوى وفق الضوابط.'}
             </p>
 
             <textarea

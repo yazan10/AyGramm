@@ -280,11 +280,20 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Helper to sanitize user object arrays
+  // Helper to sanitize user object arrays and ensure all properties are safe
   const sanitizeUserArrays = (u: any): User => {
     if (!u || typeof u !== 'object') return u;
+    const safeUsername = typeof u.username === 'string' && u.username.trim()
+      ? u.username.trim().replace(/^@/, '')
+      : (typeof u.id === 'string' && u.id.trim() ? u.id.trim().replace(/^user_/, '') : 'user');
+    const safeFullName = typeof u.fullName === 'string' && u.fullName.trim()
+      ? u.fullName.trim()
+      : safeUsername;
     return {
       ...u,
+      id: u.id || ('user_' + Math.random().toString(36).substring(2, 9)),
+      username: safeUsername,
+      fullName: safeFullName,
       followers: Array.isArray(u.followers) ? u.followers : [],
       following: Array.isArray(u.following) ? u.following : [],
       closeFriends: Array.isArray(u.closeFriends) ? u.closeFriends : [],
@@ -598,9 +607,6 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (e) {
       console.error(e);
     }
-    if (isHydratedFromRemoteRef.current) {
-      void writeRemoteCollection('aygram_current_user', currentUser);
-    }
   }, [currentUser]);
 
   useEffect(() => {
@@ -899,10 +905,12 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const remoteUsers = remote['aygram/aygram_users'] || remote['aygram_users'] || remote['aygram/users'];
       if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
         setUsers((prev) => {
-          const map = new Map(prev.map((u) => [u.id, u]));
-          for (const ru of remoteUsers as User[]) {
+          const map = new Map(prev.map((u) => [u.id, sanitizeUserArrays(u)]));
+          for (const rawRu of remoteUsers as User[]) {
+            if (!rawRu || typeof rawRu !== 'object' || !rawRu.id) continue;
+            const ru = sanitizeUserArrays(rawRu);
             const existing = map.get(ru.id) || {};
-            map.set(ru.id, {
+            const merged = sanitizeUserArrays({
               ...existing,
               ...ru,
               followers: Array.isArray(ru.followers) ? ru.followers : (Array.isArray((existing as any).followers) ? (existing as any).followers : []),
@@ -913,8 +921,9 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               restrictedUserIds: Array.isArray(ru.restrictedUserIds) ? ru.restrictedUserIds : [],
               mutedUserIds: Array.isArray(ru.mutedUserIds) ? ru.mutedUserIds : [],
             });
+            map.set(ru.id, merged);
           }
-          return Array.from(map.values());
+          return Array.from(map.values()).map(sanitizeUserArrays);
         });
       }
 
@@ -1021,6 +1030,31 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep currentUser state in sync if its record in users array is updated
+  useEffect(() => {
+    if (!currentUser) return;
+    const latestUser = users.find((u) => u.id === currentUser.id);
+    if (latestUser && latestUser !== currentUser) {
+      if (
+        latestUser.verified !== currentUser.verified ||
+        latestUser.verificationBadge !== currentUser.verificationBadge ||
+        latestUser.isActive !== currentUser.isActive ||
+        latestUser.isClosed !== currentUser.isClosed ||
+        latestUser.approvalStatus !== currentUser.approvalStatus ||
+        (latestUser.followers?.length || 0) !== (currentUser.followers?.length || 0) ||
+        (latestUser.following?.length || 0) !== (currentUser.following?.length || 0) ||
+        latestUser.profileImage !== currentUser.profileImage ||
+        latestUser.fullName !== currentUser.fullName ||
+        latestUser.bio !== currentUser.bio
+      ) {
+        setCurrentUser(latestUser);
+        try {
+          localStorage.setItem('aygram_current_user', JSON.stringify(latestUser));
+        } catch {}
+      }
+    }
+  }, [users, currentUser]);
 
   // Log admin action helper
   const addAdminLog = (action: string, details: string) => {
@@ -1578,7 +1612,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!currentUser) return;
     const filter = checkContentForBlockedWords(bio);
     if (!filter.isClean) {
-      alert(`عفواً، السيرة الذاتية تحتوي على كلمة مخالفة (${filter.forbiddenWord})`);
+      showToast(`عفواً، السيرة الذاتية تحتوي على كلمة مخالفة (${filter.forbiddenWord})`, 'warning');
       return;
     }
 
@@ -1594,6 +1628,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (e) {
       console.error(e);
     }
+    showToast('تم تحديث الملف الشخصي بنجاح', 'success');
   };
 
   const updateFullProfile = (data: Partial<User>) => {
@@ -1601,7 +1636,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (data.bio) {
       const filter = checkContentForBlockedWords(data.bio);
       if (!filter.isClean) {
-        alert(`عفواً، السيرة الذاتية تحتوي على كلمة مخالفة (${filter.forbiddenWord})`);
+        showToast(`عفواً، السيرة الذاتية تحتوي على كلمة مخالفة (${filter.forbiddenWord})`, 'warning');
         return;
       }
     }
@@ -1619,6 +1654,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (e) {
       console.error(e);
     }
+    showToast('تم تحديث البيانات بنجاح', 'success');
   };
 
   // Close Friends
@@ -1865,7 +1901,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleLikePost = (postId: string) => {
     if (!currentUser) return;
     if (!currentUser.isActive) {
-      alert('تم حظر حسابك لمخالفته المعايير. لا يمكنك التفاعل.');
+      showToast('تم حظر حسابك لمخالفته المعايير. لا يمكنك التفاعل.', 'error');
       return;
     }
     setPosts((prev) =>
@@ -1903,7 +1939,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleRetweet = (postId: string) => {
     if (!currentUser) return;
     if (!currentUser.isActive) {
-      alert('تم حظر حسابك لمخالفته المعايير. لا يمكنك التفاعل.');
+      showToast('تم حظر حسابك لمخالفته المعايير. لا يمكنك التفاعل.', 'error');
       return;
     }
     setPosts((prev) =>
@@ -2979,10 +3015,15 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const viewUserProfile = (user: User | string) => {
     if (typeof user === 'string') {
-      const found = users.find((u) => u.id === user || u.username === user);
+      let found = users.find((u) => u.id === user || u.username.toLowerCase() === user.toLowerCase());
+      if (!found && (user === OWNER_ACCOUNT_ID || user.toLowerCase() === 'y' || user.toLowerCase() === 'admin')) {
+        found = OWNER_ACCOUNT;
+      }
       if (found) {
         setSelectedUserProfile(found);
         setActiveView('profile');
+      } else {
+        showToast('لم يتم العثور على هذا الحساب أو قد يكون تم حذفه', 'info');
       }
     } else {
       setSelectedUserProfile(user);

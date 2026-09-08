@@ -65,7 +65,8 @@ export const DirectMessagesView: React.FC = () => {
     setActiveConversationUserId,
     viewUserProfile,
     acceptMessageRequest,
-    rejectMessageRequest
+    rejectMessageRequest,
+    setActiveView
   } = useAyGram();
 
   const [messageInput, setMessageInput] = useState('');
@@ -151,6 +152,12 @@ export const DirectMessagesView: React.FC = () => {
         <p className="text-sm text-[#7A7A7A] mb-6">
           يرجى تسجيل الدخول أو إنشاء حساب للتواصل بأمان وسرية تامة مع سائر الإخوة والأخوات والتجار.
         </p>
+        <button
+          onClick={() => setActiveView('auth')}
+          className="py-2.5 px-6 rounded-xl bg-[#0F3D2E] hover:bg-[#155A44] text-[#D4AF37] font-bold text-xs transition-colors shadow-aygram cursor-pointer"
+        >
+          تسجيل الدخول / إنشاء حساب
+        </button>
       </div>
     );
   }
