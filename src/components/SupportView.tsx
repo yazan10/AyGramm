@@ -63,8 +63,8 @@ const FAQ_ITEMS = [
     a: 'لا! حرصت منصة AyGram برؤية المطور يزن السلاق على إتاحة التسجيل بدون اشتراط بريد أو هاتف إلزامي للمستخدمين، للحفاظ على الخصوصية والسهولة التامة، مع دعم خيارات استرجاع الحساب عبر كلمة المرور المعتمدة.',
   },
   {
-    q: 'كيف يعمل محرك المزامنة السحابية على سيرفر Vercel؟',
-    a: 'يعتمد الموقع على محرك مزامنة لحظي Serverless مرتبط مع خوادم Vercel Cloud، يقوم بنقل وحفظ المنشورات والقصص والرسائل والتذاكر فور حدوثها دون الحاجة لعمل تحديث (Refresh) للصفحة، مع تخزين كاش محلي فوري للأداء السريع.',
+    q: 'كيف يعمل محرك المزامنة السحابية على سيرفر AyGram؟',
+    a: 'يعتمد الموقع على محرك مزامنة لحظي ذكي مرتبط مع خوادم AyGram Cloud، يقوم بنقل وحفظ المنشورات والقصص والرسائل والتذاكر فور حدوثها دون الحاجة لعمل تحديث (Refresh) للصفحة، مع تخزين كاش محلي فوري للأداء فائق السرعة.',
   },
   {
     q: 'كيف يمكنني نشر منتجاتي في متجر AyGram؟',
@@ -126,7 +126,7 @@ export const SupportView: React.FC = () => {
     }
   }, [userTickets, selectedTicketId]);
 
-  // Check Vercel serverless health
+  // Check Cloud server health
   useEffect(() => {
     let isMounted = true;
     const checkServer = async () => {
@@ -235,7 +235,7 @@ export const SupportView: React.FC = () => {
             <div className="flex items-center justify-between text-xs">
               <span className="text-stone-300 flex items-center gap-1.5">
                 <Server className="w-3.5 h-3.5 text-[#D4AF37]" />
-                سيرفر Vercel السحابي:
+                سيرفر المنصة السحابي:
               </span>
               <span className="flex items-center gap-1 text-emerald-400 font-bold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
@@ -513,7 +513,7 @@ export const SupportView: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] text-stone-400">
-                        الردود تتم مزامنتها تلقائياً على خوادم Vercel
+                        الردود تتم مزامنتها تلقائياً على خوادم المنصة
                       </span>
                       <button
                         type="submit"
@@ -738,16 +738,16 @@ export const SupportView: React.FC = () => {
           <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-[#0F3D2E] pb-2 border-b border-stone-100">
               <Server className="w-5 h-5" />
-              <h3 className="text-sm font-bold">جاهزية خوادم Vercel</h3>
+              <h3 className="text-sm font-bold">جاهزية خوادم المنصة</h3>
             </div>
             <div className="space-y-3 text-xs">
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1">
                 <div className="flex items-center justify-between font-bold">
-                  <span>Vercel Serverless Sync Engine</span>
+                  <span>AyGram Cloud Sync Engine</span>
                   <span className="text-emerald-700">99.9% Uptime</span>
                 </div>
                 <p className="text-[11px] text-emerald-800/80">
-                  خوادم Vercel مهيأة للعمل الفوري والمزامنة الحية لجميع التغريدات والقصص والرسائل دون انقطاع.
+                  خوادم المنصة السحابية مهيأة للعمل الفوري والمزامنة الحية لجميع التغريدات والقصص والرسائل دون انقطاع.
                 </p>
               </div>
 

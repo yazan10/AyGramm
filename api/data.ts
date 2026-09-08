@@ -1,8 +1,7 @@
-// Vercel Serverless Function: High-performance Real-Time Data Store
-// Authoritative backend controller for AyGram on Vercel & Supabase
+// AyGram Cloud Function: High-performance Real-Time Data Store
+// Authoritative backend controller for AyGram
 // Supports: Supabase PostgreSQL (via aygram_storage table), Memory cache, and Cloud fallback
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
@@ -178,8 +177,8 @@ function mergeCollection(existing: any, incoming: any): any {
   return incoming;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS & caching headers for Vercel
+export default async function handler(req: any, res: any) {
+  // CORS & caching headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

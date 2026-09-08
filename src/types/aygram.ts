@@ -346,6 +346,20 @@ export interface SupportTicket {
   updatedAt: string;
 }
 
+export interface PasswordResetRequest {
+  id: string;
+  userId?: string;
+  username: string;
+  fullName?: string;
+  contactInfo?: string;
+  proofDetails: string;
+  newPassword?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+}
+
 export type ActiveView =
   | 'landing' // الشاشة الرئيسية للموقع التي تفتح أول ما يفتح الموقع وتتضمن شروحات ومميزات
   | 'home'

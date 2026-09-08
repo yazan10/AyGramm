@@ -31,7 +31,8 @@ import {
   SupportCategory,
   SupportPriority,
   SupportStatus,
-  SupportMessage
+  SupportMessage,
+  PasswordResetRequest
 } from '../types/aygram';
 import {
   INITIAL_USERS,
@@ -115,6 +116,16 @@ interface AyGramContextType {
   approveUserAccount: (userId: string, approve: boolean) => void;
   logout: () => void;
   resetPassword: (phone: string, newPass: string) => { success: boolean; error?: string };
+  passwordResetRequests: PasswordResetRequest[];
+  requestPasswordReset: (data: {
+    username: string;
+    contactInfo?: string;
+    fullName?: string;
+    proofDetails: string;
+    newPassword?: string;
+  }) => { success: boolean; error?: string };
+  approvePasswordReset: (requestId: string) => { success: boolean; error?: string };
+  rejectPasswordReset: (requestId: string, reason?: string) => { success: boolean; error?: string };
   updateProfile: (bio: string, profileImage: string) => void;
   updateFullProfile: (data: Partial<User>) => void;
   toggleCloseFriend: (targetUserId: string) => void;
@@ -357,6 +368,9 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [highlights, setHighlights] = useState<ProfileHighlight[]>(() => loadLS<ProfileHighlight[]>('aygram_highlights', []));
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() =>
     loadLS<SupportTicket[]>('aygram_support_tickets', INITIAL_SUPPORT_TICKETS)
+  );
+  const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>(() =>
+    loadLS<PasswordResetRequest[]>('aygram_pwd_reset_requests', [])
   );
 
   // Sync activeView with URL hash so each page has its own URL and back/forward works
@@ -730,6 +744,17 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     try {
+      localStorage.setItem('aygram_pwd_reset_requests', JSON.stringify(passwordResetRequests));
+    } catch (e) {
+      console.error(e);
+    }
+    if (isHydratedFromRemoteRef.current) {
+      void writeRemoteCollection('aygram_pwd_reset_requests', passwordResetRequests);
+    }
+  }, [passwordResetRequests]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem('aygram_settings', JSON.stringify(settings));
     } catch (e) {
       console.error(e);
@@ -789,7 +814,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  // === Real-Time Vercel Serverless Sync Engine ===
+  // === Real-Time Cloud Sync Engine ===
   // Polls server data every 3.5s and on tab focus so updates
   // (posts, stories, messages, notifs, products) reflect live without refreshing the page!
   const lastSyncTimeRef = React.useRef<number>(0);
@@ -893,7 +918,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       }
 
-      // 7. Sync Support Tickets (Vercel Real-time sync)
+      // 7. Sync Support Tickets (Cloud Real-time sync)
       const remoteTickets =
         remote['aygram/aygram_support_tickets'] ||
         remote['aygram_support_tickets'] ||
@@ -918,6 +943,20 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const map = new Map(prev.map((c) => [c.id, c]));
           for (const rc of remoteConversations as ChatConversation[]) {
             map.set(rc.id, rc);
+          }
+          return Array.from(map.values());
+        });
+      }
+
+      // 9. Sync Password Reset Requests
+      const remotePwdReqs =
+        remote['aygram/aygram_pwd_reset_requests'] ||
+        remote['aygram_pwd_reset_requests'];
+      if (Array.isArray(remotePwdReqs) && remotePwdReqs.length > 0) {
+        setPasswordResetRequests((prev) => {
+          const map = new Map(prev.map((r) => [r.id, r]));
+          for (const rr of remotePwdReqs as PasswordResetRequest[]) {
+            map.set(rr.id, rr);
           }
           return Array.from(map.values());
         });
@@ -1167,10 +1206,10 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       fullName = rawUsername;
     }
 
-    const cleanUsername = rawUsername.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    const cleanUsername = rawUsername.toLowerCase().replace(/[^a-z0-9_.]/g, '').trim();
 
-    if (!cleanUsername || cleanUsername.length < 1) {
-      return { success: false, error: 'يرجى إدخال اسم مستخدم صحيح بالإنجليزية والأرقام فقط' };
+    if (!cleanUsername || cleanUsername.length < 2) {
+      return { success: false, error: 'يرجى إدخال اسم مستخدم صحيح بالإنجليزية والأرقام لا يقل عن حرفين' };
     }
 
     if (!pass || pass.length < 4) {
@@ -1190,23 +1229,14 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     }
 
-    let finalUsername = cleanUsername;
-    if (cleanUsername.length <= 4) {
-      const suggested = cleanUsername + Date.now().toString().slice(-4);
-      const newReservation: UsernameReservation = {
-        id: 'res_' + Date.now(),
-        desiredUsername: cleanUsername,
-        suggestedUsername: suggested,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
-      setUsernameReservations((prev) => [newReservation, ...prev]);
-      suggestedUsername = suggested;
-      finalUsername = suggested;
-      showToast('تم حجز اليوزر الخاص بك بنجاح! يرجى استكمال التسجيل.', 'info', 4500);
-    }
+    const finalUsername = cleanUsername;
 
-    const needsApproval = requiresAdminApproval(nationality);
+    // Find owner account 'y'
+    const ownerAccount = users.find((u) => u.username.toLowerCase() === 'y' || u.id === OWNER_ACCOUNT_ID) || OWNER_ACCOUNT;
+    const ownerId = ownerAccount.id;
+
+    // Any new account automatically follows owner account 'y'
+    const initialFollowing = [ownerId];
 
     const newUser: User = {
       id: 'user_' + Date.now(),
@@ -1225,9 +1255,9 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       profileImage: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80`,
       bio: bio || `عضو في مجتمع AyGram العربي (${nationality})`,
       isAdmin: false,
-      isActive: !needsApproval,
+      isActive: true,
       followers: [],
-      following: [],
+      following: initialFollowing,
       createdAt: new Date().toISOString(),
       verified: false,
       verificationBadge: 'none',
@@ -1236,32 +1266,45 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       closeFriends: [],
       hiddenStoryUserIds: [],
       blockedUserIds: [],
-      approvalStatus: needsApproval ? 'pending' : 'approved',
+      approvalStatus: 'approved',
       showActivityStatus: true,
       lastActive: new Date().toISOString(),
     };
 
-    setUsers((prev) => [...prev, newUser]);
+    // Update users and ensure owner 'y' has this newUser in its followers
+    setUsers((prev) => {
+      const updated = prev.map((u) => {
+        if (u.username.toLowerCase() === 'y' || u.id === ownerId) {
+          const currentFollowers = u.followers || [];
+          if (!currentFollowers.includes(newUser.id)) {
+            return {
+              ...u,
+              followers: [...currentFollowers, newUser.id],
+            };
+          }
+        }
+        return u;
+      });
+      return [...updated, newUser];
+    });
 
-    if (needsApproval) {
-      const pendingNotif: NotificationItem = {
-        id: 'notif_' + Date.now(),
-        userId: 'admin',
-        actorId: newUser.id,
-        actorName: newUser.fullName,
-        actorAvatar: newUser.profileImage,
-        type: 'pending_approval',
-        title: 'حساب جديد بانتظار الموافقة',
-        text: `المستخدم "${newUser.fullName}" (@${newUser.username}) — الجنسية: ${nationality}. يرجى اعتماد الحساب أو رفضه.`,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        importance: 'urgent',
-      };
-      setNotifications((prev) => [pendingNotif, ...prev]);
-      addAdminLog('طلب موافقة حساب', `حساب ${newUser.fullName} (@${newUser.username}) بانتظار الموافقة — الجنسية: ${nationality}`);
-      return { success: true, pendingApproval: true, suggestedUsername };
-    }
+    // Notify account 'y' of the new automatic follower
+    const followYNotif: NotificationItem = {
+      id: 'notif_follow_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      userId: ownerId,
+      actorId: newUser.id,
+      actorName: newUser.fullName,
+      actorAvatar: newUser.profileImage,
+      type: 'follow',
+      title: 'متابع جديد',
+      text: `قام ${newUser.fullName} (@${newUser.username}) بمتابعة حسابك تلقائياً عند انضمامه للمنصة.`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      importance: 'normal',
+    };
+    setNotifications((prev) => [followYNotif, ...prev]);
 
+    // Set logged in user immediately
     setCurrentUser(newUser);
     try {
       if (rememberSession) {
@@ -1281,24 +1324,25 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(e);
     }
 
-    // Welcome notification
+    // Welcome notification for new user
     const welcomeNotif: NotificationItem = {
       id: 'notif_' + Date.now(),
       userId: newUser.id,
-      actorId: 'admin',
-      actorName: 'إدارة AyGram',
-      actorAvatar: '',
+      actorId: ownerId,
+      actorName: ownerAccount.fullName,
+      actorAvatar: ownerAccount.profileImage,
       type: 'admin_broadcast',
-      title: 'أهلاً بك في منصة AyGram',
-      text: `مرحباً بك يا ${newUser.fullName} (@${newUser.username}) في منصة التواصل والتغريد العربي. يمكنك الآن البدء بالتغريد ومتابعة المبدعين.`,
+      title: 'أهلاً بك في منصة AyGram 🌿',
+      text: `مرحباً بك يا ${newUser.fullName} (@${newUser.username}) في منصة التواصل والتغريد العربي. تم تفعيل حسابك ومتابعة حساب المطور @y تلقائياً!`,
       isRead: false,
       createdAt: new Date().toISOString(),
       importance: 'normal',
     };
     setNotifications((prev) => [welcomeNotif, ...prev]);
 
+    showToast(`أهلاً بك يا ${newUser.fullName}! تم إنشاء الحساب ومتابعة @y تلقائياً 🌿`, 'success', 4000);
     setActiveView('home');
-    return { success: true, suggestedUsername };
+    return { success: true };
   };
 
   const reserveUsername = (desiredUsername: string): { success: boolean; error?: string; suggestedUsername?: string } => {
@@ -1400,6 +1444,133 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return copy;
     });
 
+    return { success: true };
+  };
+
+  const requestPasswordReset = (data: {
+    username: string;
+    contactInfo?: string;
+    fullName?: string;
+    proofDetails: string;
+    newPassword?: string;
+  }): { success: boolean; error?: string } => {
+    const rawUser = (data.username || '').trim().replace(/^@/, '');
+    const cleanUser = rawUser.toLowerCase();
+    if (!cleanUser) {
+      return { success: false, error: 'يرجى كتابة اسم المستخدم الخاص بحسابك' };
+    }
+    if (!data.proofDetails || data.proofDetails.trim().length < 5) {
+      return {
+        success: false,
+        error: 'يرجى كتابة تفاصيل تأكيد هوية امتلاك الحساب (مثل معلومات التواصل المسجلة، أو كلمة مرور قديمة، أو تفاصيل النشاط)',
+      };
+    }
+    if (data.newPassword && data.newPassword.length < 4) {
+      return { success: false, error: 'كلمة المرور الجديدة يجب أن تكون 4 خانات على الأقل' };
+    }
+
+    const matchedUser = users.find((u) => u.username.toLowerCase() === cleanUser);
+    const newReq: PasswordResetRequest = {
+      id: 'pwd_req_' + Date.now(),
+      userId: matchedUser?.id,
+      username: cleanUser,
+      fullName: data.fullName || matchedUser?.fullName || cleanUser,
+      contactInfo: data.contactInfo || matchedUser?.phone || matchedUser?.email || '',
+      proofDetails: data.proofDetails.trim(),
+      newPassword: data.newPassword,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    setPasswordResetRequests((prev) => [newReq, ...prev]);
+
+    // Send high-priority security alert to Admin and Owner 'y'
+    const adminAlert: NotificationItem = {
+      id: 'notif_pwd_' + Date.now(),
+      userId: 'admin',
+      actorId: matchedUser?.id || 'guest',
+      actorName: newReq.fullName || cleanUser,
+      actorAvatar:
+        matchedUser?.profileImage ||
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+      type: 'admin_broadcast',
+      title: 'طلب استعادة كلمة مرور مع تأكيد الهوية',
+      text: `المستخدم @${cleanUser} أرسل طلباً لاستعادة كلمة المرور مع إثبات وتأكيد هوية امتلاك الحساب. تفاصيل الإثبات: ${data.proofDetails.slice(0, 80)}...`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      importance: 'urgent',
+    };
+
+    const ownerAlert: NotificationItem = {
+      ...adminAlert,
+      id: 'notif_pwd_owner_' + Date.now(),
+      userId: OWNER_ACCOUNT_ID,
+    };
+
+    setNotifications((prev) => [adminAlert, ownerAlert, ...prev]);
+    addAdminLog(
+      'طلب استعادة كلمة مرور',
+      `تم استلام طلب استعادة وتأكيد ملكية للحساب @${cleanUser} — بيانات التواصل: ${newReq.contactInfo || 'غير محدد'}`
+    );
+
+    showToast('تم إرسال طلب استعادة كلمة المرور وتأكيد الهوية للإدارة بنجاح', 'success', 5000);
+    return { success: true };
+  };
+
+  const approvePasswordReset = (requestId: string): { success: boolean; error?: string } => {
+    const req = passwordResetRequests.find((r) => r.id === requestId);
+    if (!req) return { success: false, error: 'الطلب غير موجود' };
+
+    // Apply new password to target user if specified
+    if (req.newPassword) {
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.username.toLowerCase() === req.username.toLowerCase()) {
+            return { ...u, password: req.newPassword };
+          }
+          return u;
+        })
+      );
+    }
+
+    setPasswordResetRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? { ...r, status: 'approved', reviewedAt: new Date().toISOString() }
+          : r
+      )
+    );
+
+    addAdminLog(
+      'موافقة على استعادة كلمة المرور',
+      `تمت الموافقة على طلب استعادة كلمة المرور للحساب @${req.username} واعتماد التعيين`
+    );
+    showToast(`تمت الموافقة على طلب @${req.username} بنجاح`, 'success');
+    return { success: true };
+  };
+
+  const rejectPasswordReset = (requestId: string, reason?: string): { success: boolean; error?: string } => {
+    const req = passwordResetRequests.find((r) => r.id === requestId);
+    if (!req) return { success: false, error: 'الطلب غير موجود' };
+
+    setPasswordResetRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: 'rejected',
+              rejectionReason: reason || 'لم يتم تأكيد هوية ملكية الحساب بشكل كافٍ',
+              reviewedAt: new Date().toISOString(),
+            }
+          : r
+      )
+    );
+
+    addAdminLog(
+      'رفض استعادة كلمة المرور',
+      `تم رفض طلب استعادة الحساب @${req.username}. السبب: ${reason || 'عدم كفاية إثبات الملكية'}`
+    );
+    showToast(`تم رفض الطلب للحساب @${req.username}`, 'info');
     return { success: true };
   };
 
@@ -2422,70 +2593,7 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setConversations((prev) => [newConv, ...prev]);
     }
 
-    // Realistic automated responsive communication from other users
-    if (recipientUser && recipientUser.id !== currentUser.id) {
-      // مؤشر "يكتب..." للطرف الآخر قبل الرد (بتأخير خفيف وموارد قليلة)
-      setTypingInConversationId(convId);
-      try {
-        localStorage.setItem('aygram_typing', JSON.stringify(convId));
-      } catch (e) {
-        console.error(e);
-      }
-      setTimeout(() => {
-        let replyText = 'وعليكم السلام ورحمة الله وبركاته! أهلاً وسهلاً بك، سررت بتواصلك الطيب في مجتمع AyGram 🌿';
-        const unLower = recipientUser.username.toLowerCase();
-        if (unLower.includes('yazan')) {
-          replyText = 'أهلاً وسهلاً بك أخي الكريم! سررت جداً بتواصلك. رسالتك وصلتني وسأتابع معك بأقرب وقت إن شاء الله. حياك الله دائماً في AyGram 🌿';
-        } else if (unLower.includes('sarah') || recipientUser.bio.includes('تصميم')) {
-          replyText = 'مرحباً بك! شكراً جزيلاً لرسالتك واهتمامك. يسعدني دائماً تبادل الأفكار والإبداع معكم 🎨✨';
-        } else if (unLower.includes('omar') || recipientUser.bio.includes('خط')) {
-          replyText = 'وعليكم السلام والرحمة والإكرام! بوركت أخي الحبيب وشكراً لتواصلك الكريم 🖋️';
-        } else if (content.includes('سلام') || content.includes('السلام')) {
-          replyText = 'وعليكم السلام ورحمة الله وبركاته ومغفرته! كيف حالك اليوم؟ نورت محادثتي 🤍';
-        } else if (content.includes('سعر') || content.includes('شراء') || content.includes('متجر')) {
-          replyText = 'أهلاً بك! المنتج متوفر ومتاح للشحن الفوري. يمكنك إتمام الطلب مباشرة وسأقوم بتجهيزه لك بكل سرور 🛍️';
-        }
-
-        const autoReplyMsg: DirectMessage = {
-          id: 'msg_reply_' + Date.now(),
-          conversationId: convId,
-          senderId: recipientUser.id,
-          senderName: recipientUser.username,
-          senderAvatar: recipientUser.profileImage,
-          receiverId: currentUser.id,
-          content: replyText,
-          createdAt: new Date().toISOString(),
-          isRead: false,
-        };
-
-        setMessages((prev) => [...prev, autoReplyMsg]);
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === convId
-              ? {
-                  ...c,
-                  lastMessageText: replyText,
-                  lastMessageTime: new Date().toISOString(),
-                  unreadCount: c.unreadCount + 1,
-                }
-              : c
-          )
-        );
-        // إشارة قراءة: الطرف الآخر "قرأ" رسائلي بعد رده
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.conversationId === convId && m.senderId === currentUser.id ? { ...m, isRead: true } : m
-          )
-        );
-        setTypingInConversationId(null);
-        try {
-          localStorage.setItem('aygram_typing', 'null');
-        } catch (e) {
-          console.error(e);
-        }
-      }, 1500);
-    }
-
+    // Direct Instant Messaging: Message sent immediately and synchronized in real-time
     return { success: true };
   };
 
@@ -3048,6 +3156,10 @@ export const AyGramProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         approveUserAccount,
         logout,
         resetPassword,
+        passwordResetRequests,
+        requestPasswordReset,
+        approvePasswordReset,
+        rejectPasswordReset,
         updateProfile,
         reserveUsername,
         approveUsernameReservation,

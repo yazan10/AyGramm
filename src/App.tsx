@@ -120,21 +120,11 @@ const AyGramAppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Inline content skeletons while switching views
-  const prevViewRef = React.useRef<ActiveView>(activeView);
-  const [isViewLoading, setIsViewLoading] = useState(false);
+  // Keep page steady at top when switching views (no scroll down or jumping)
   useLayoutEffect(() => {
-    if (prevViewRef.current === activeView) {
-      prevViewRef.current = activeView;
-      return;
-    }
-    prevViewRef.current = activeView;
-    if (activeView === 'landing' || activeView === 'auth' || activeView === 'admin') return;
-    setIsViewLoading(true);
-    const timer = setTimeout(() => {
-      setIsViewLoading(false);
-    }, 400);
-    return () => clearTimeout(timer);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [activeView]);
 
   // Report modal state
@@ -221,26 +211,15 @@ const AyGramAppContent: React.FC = () => {
 
             {/* Central Page View Area (Each page separated independently) */}
             <div className={`flex-1 max-w-2xl w-full space-y-4 ${currentUser ? 'pb-24 lg:pb-8 mobile-safe-bottom' : 'pb-8'}`}>
-              
-              {isViewLoading ? (
-                activeView === 'messages' || activeView === 'notifications' ? (
-                  <ChatSkeletonLoader count={5} />
-                ) : activeView === 'profile' || activeView === 'settings' || activeView === 'edit_profile' ? (
-                  <ProfileSkeleton />
-                ) : (
-                  <FeedSkeleton />
-                )
-              ) : (
-                <>
-                  {activeView === 'home' && (
-                    <HomePage
-                      onOpenAddStory={() => {
-                        if (!currentUser) openAuth('login');
-                        else setIsAddStoryOpen(true);
-                      }}
-                      onOpenReport={handleOpenReport}
-                    />
-                  )}
+              {activeView === 'home' && (
+                <HomePage
+                  onOpenAddStory={() => {
+                    if (!currentUser) openAuth('login');
+                    else setIsAddStoryOpen(true);
+                  }}
+                  onOpenReport={handleOpenReport}
+                />
+              )}
 
                   {activeView === 'explore' && (
                     <ExplorePage onOpenReport={handleOpenReport} />
@@ -307,8 +286,6 @@ const AyGramAppContent: React.FC = () => {
                   {activeView === 'not_found' && (
                     <NotFoundPage />
                   )}
-                </>
-              )}
             </div>
 
             {/* Desktop Right Info / Widgets Column */}

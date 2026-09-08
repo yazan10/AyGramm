@@ -45,7 +45,9 @@ import {
   Layers,
   DollarSign,
   MessageCircle,
-  Copy
+  Copy,
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 import { AYGRAM_SUPABASE_SQL } from '../utils/supabaseSchema';
 import { useAyGram } from '../context/AyGramContext';
@@ -104,6 +106,9 @@ export const AdminPanel: React.FC = () => {
     replyToSupportTicket,
     updateSupportTicketStatus,
     deleteSupportTicket,
+    passwordResetRequests,
+    approvePasswordReset,
+    rejectPasswordReset,
     channels,
     channelPosts,
     conversations,
@@ -112,7 +117,7 @@ export const AdminPanel: React.FC = () => {
   } = useAyGram();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'posts' | 'products' | 'users' | 'verifications' | 'broadcasts' | 'maintenance' | 'reports' | 'blacklist' | 'logs' | 'settings' | 'usernameReservations' | 'support'
+    'overview' | 'posts' | 'products' | 'users' | 'verifications' | 'broadcasts' | 'maintenance' | 'reports' | 'blacklist' | 'logs' | 'settings' | 'usernameReservations' | 'support' | 'passwordResets'
   >('overview');
 
   // Support tickets state in admin
@@ -381,6 +386,12 @@ export const AdminPanel: React.FC = () => {
               label: 'تذاكر الدعم الفني',
               icon: <LifeBuoy className="w-4 h-4 text-[#D4AF37]" />,
               badge: openTicketsCount,
+            },
+            {
+              id: 'passwordResets',
+              label: 'استعادة الحسابات وتأكيد الهوية',
+              icon: <KeyRound className="w-4 h-4 text-[#D4AF37]" />,
+              badge: passwordResetRequests.filter((r) => r.status === 'pending').length,
             },
           ].map((tab) => {
             const isActive = activeAdminTab === tab.id;
@@ -1995,6 +2006,146 @@ export const AdminPanel: React.FC = () => {
                     </div>
                   );
                 })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 14. PASSWORD RESETS & IDENTITY PROOF */}
+      {activeAdminTab === 'passwordResets' && (
+        <div className="space-y-4">
+          <div className="bg-white p-5 rounded-[16px] border border-[#EFE9D9] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-[#0F3D2E] flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#D4AF37]" />
+                طلبات استعادة الحساب وتأكيد الهوية ({passwordResetRequests.length})
+              </h2>
+              <p className="text-xs text-[#7A7A7A] mt-1">
+                مراجعة الأدلة وتأكيدات الملكية المقدمة من أصحاب الحسابات لاعتماد تعيين كلمة المرور الجديدة
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 font-bold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                {passwordResetRequests.filter((r) => r.status === 'pending').length} بانتظار المراجعة
+              </span>
+            </div>
+          </div>
+
+          {passwordResetRequests.length === 0 ? (
+            <div className="bg-white rounded-[16px] p-10 text-center border border-[#EFE9D9] text-xs text-[#7A7A7A] space-y-2">
+              <KeyRound className="w-8 h-8 text-stone-300 mx-auto" />
+              <p className="font-bold text-stone-600">لا توجد طلبات استعادة كلمة مرور حالياً.</p>
+              <p className="text-[11px] text-stone-400">أي طلب يتم إرساله من شاشة "نسيت كلمة المرور" سيظهر هنا فوراً مع أدلة إثبات الملكية.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {passwordResetRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className={`bg-white rounded-[16px] p-5 border shadow-aygram space-y-4 ${
+                    req.status === 'pending'
+                      ? 'border-[#D4AF37] bg-amber-50/20'
+                      : req.status === 'approved'
+                      ? 'border-emerald-200 bg-emerald-50/10'
+                      : 'border-stone-200 opacity-75'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-stone-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#0F3D2E] text-[#D4AF37] flex items-center justify-center font-bold text-sm">
+                        @{req.username.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#0F3D2E] text-sm">@{req.username}</span>
+                          {req.fullName && (
+                            <span className="text-xs text-stone-600 font-medium">({req.fullName})</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-stone-400 mt-0.5 flex items-center gap-2">
+                          <span>تاريخ الطلب: {new Date(req.createdAt).toLocaleString('ar-SA')}</span>
+                          {req.contactInfo && <span>• بيانات التواصل: <strong className="text-stone-700">{req.contactInfo}</strong></span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      {req.status === 'pending' && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> بانتظار المراجعة
+                        </span>
+                      )}
+                      {req.status === 'approved' && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> تمت الموافقة والاعتماد
+                        </span>
+                      )}
+                      {req.status === 'rejected' && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
+                          <X className="w-3.5 h-3.5" /> تم الرفض
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Proof details box */}
+                  <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#0F3D2E]">
+                      <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                      <span>تفاصيل إثبات وتأكيد هوية امتلاك الحساب:</span>
+                    </div>
+                    <p className="text-xs text-stone-800 leading-relaxed whitespace-pre-wrap font-sans">
+                      {req.proofDetails}
+                    </p>
+                  </div>
+
+                  {/* New password requested */}
+                  {req.newPassword && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-stone-600">كلمة المرور المطلوب اعتمادها:</span>
+                      <span className="font-mono bg-stone-100 px-2.5 py-1 rounded-md border border-stone-200 text-stone-900 font-bold">
+                        {req.newPassword}
+                      </span>
+                    </div>
+                  )}
+
+                  {req.rejectionReason && (
+                    <div className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                      <strong>سبب الرفض:</strong> {req.rejectionReason}
+                    </div>
+                  )}
+
+                  {/* Actions for pending requests */}
+                  {req.status === 'pending' && (
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
+                      <button
+                        onClick={() => {
+                          const reason = prompt('يرجى ذكر سبب الرفض (اختياري):', 'لم يتم تأكيد هوية الملكية بشكل كافٍ');
+                          if (reason !== null) {
+                            rejectPasswordReset(req.id, reason);
+                          }
+                        }}
+                        className="py-2 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition-colors cursor-pointer"
+                      >
+                        رفض الطلب
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`هل أنت متأكد من الموافقة على طلب استعادة الحساب @${req.username} واعتماد كلمة المرور؟`)) {
+                            approvePasswordReset(req.id);
+                          }
+                        }}
+                        className="py-2 px-5 rounded-xl bg-[#0F3D2E] hover:bg-[#155A44] text-[#D4AF37] font-bold text-xs transition-colors shadow-aygram cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Check className="w-4 h-4" />
+                        اعتماد وتعيين كلمة المرور
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

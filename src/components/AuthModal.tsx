@@ -28,7 +28,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   initialMode = 'login',
 }) => {
-  const { login, signup, resetPassword, setActiveView } = useAyGram();
+  const { login, signup, requestPasswordReset, setActiveView } = useAyGram();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
 
   // Sign up fields
@@ -42,9 +42,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [currency, setCurrency] = useState('SAR');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Forgot password
+  // Forgot password & Identity Proof
   const [forgotUsername, setForgotUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [forgotContact, setForgotContact] = useState('');
+  const [proofDetails, setProofDetails] = useState('');
+  const [desiredPassword, setDesiredPassword] = useState('');
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
 
   // Feedback states
   const [error, setError] = useState('');
@@ -135,19 +138,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleResetPasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!forgotUsername.trim() || !newPassword) {
-      setError('يرجى إدخال اسم المستخدم وكلمة المرور الجديدة');
+    const cleanUser = forgotUsername.trim().replace(/^@/, '');
+    if (!cleanUser) {
+      setError('يرجى إدخال اسم المستخدم الخاص بحسابك');
       return;
     }
-    const res = resetPassword(forgotUsername.trim(), newPassword);
+    if (!proofDetails.trim() || proofDetails.trim().length < 5) {
+      setError('يرجى تقديم تفاصيل إثبات وتأكيد هوية امتلاك الحساب للمراجعة والاعتماد');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    const res = requestPasswordReset({
+      username: cleanUser,
+      contactInfo: forgotContact.trim(),
+      proofDetails: proofDetails.trim(),
+      newPassword: desiredPassword ? desiredPassword : undefined,
+    });
+    setIsSubmittingReset(false);
+
     if (res.success) {
-      setSuccessMsg('تم تعيين كلمة المرور الجديدة بنجاح! يمكنك الآن تسجيل الدخول.');
+      setSuccessMsg('تم إرسال طلب استعادة الحساب وتأكيد الملكية للإدارة بنجاح! سيتم مراجعة هويتك واعتماد التعيين.');
       setTimeout(() => {
         setMode('login');
         setSuccessMsg('');
-      }, 1500);
+        setForgotUsername('');
+        setForgotContact('');
+        setProofDetails('');
+        setDesiredPassword('');
+      }, 3500);
     } else {
-      setError(res.error || 'فشل تغيير كلمة المرور');
+      setError(res.error || 'تعذر إرسال طلب استعادة الحساب');
     }
   };
 
@@ -481,57 +502,96 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* 3. FORGOT PASSWORD */}
+        {/* 3. FORGOT PASSWORD WITH IDENTITY PROOF */}
         {mode === 'forgot' && (
           <div className="space-y-4">
             <div className="text-center">
+              <div className="w-10 h-10 mx-auto rounded-full bg-[#0F3D2E]/10 flex items-center justify-center text-[#0F3D2E] mb-2">
+                <ShieldCheck className="w-5 h-5 text-[#D4AF37]" />
+              </div>
               <h2 className="text-xl font-bold text-[#0F3D2E]">
-                استعادة كلمة المرور
+                استعادة الحساب وتأكيد الهوية
               </h2>
               <p className="text-xs text-[#7A7A7A] mt-1">
-                أدخل اسم المستخدم لتعيين كلمة مرور جديدة لحسابك
+                أدخل اسم المستخدم وتفاصيل تأكيد ملكية الحساب لإرسال طلب استعادة رسمي للإدارة
               </p>
             </div>
 
-            <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+            <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-[#1A1A1A] mb-1">
-                  اسم المستخدم
+                  اسم المستخدم (اليوزر) الخاص بحسابك <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-bold">@</span>
+                  <input
+                    type="text"
+                    value={forgotUsername}
+                    onChange={(e) => setForgotUsername(e.target.value)}
+                    placeholder="username"
+                    dir="ltr"
+                    className="w-full py-2.5 pr-8 pl-3.5 rounded-[12px] bg-white border border-[#EFE9D9] text-sm text-left focus:outline-none focus:border-[#0F3D2E]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1A1A1A] mb-1">
+                  بيانات التواصل (رقم الهاتف أو البريد الإلكتروني المسجل)
                 </label>
                 <input
                   type="text"
-                  value={forgotUsername}
-                  onChange={(e) => setForgotUsername(e.target.value)}
-                  placeholder="اسم المستخدم"
+                  value={forgotContact}
+                  onChange={(e) => setForgotContact(e.target.value)}
+                  placeholder="مثال: +966... أو email@example.com"
                   className="w-full py-2.5 px-3.5 rounded-[12px] bg-white border border-[#EFE9D9] text-sm focus:outline-none focus:border-[#0F3D2E]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1A1A1A] mb-1">
+                  تأكيد هوية امتلاك الحساب وإثبات الملكية <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  value={proofDetails}
+                  onChange={(e) => setProofDetails(e.target.value)}
+                  rows={2}
+                  placeholder="اكتب تفاصيل تثبت ملكيتك للحساب (مثل: كلمة مرور سابقة تذكرها، تاريخ تقريبي للتسجيل، أحدث المنشورات أو المحادثات، إلخ)"
+                  className="w-full py-2 px-3 rounded-[12px] bg-white border border-[#EFE9D9] text-xs focus:outline-none focus:border-[#0F3D2E] resize-none"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-[#1A1A1A] mb-1">
-                  كلمة المرور الجديدة
+                  كلمة المرور الجديدة المراد اعتمادها (اختياري)
                 </label>
                 <input
                   type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  value={desiredPassword}
+                  onChange={(e) => setDesiredPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full py-2.5 px-3.5 rounded-[12px] bg-white border border-[#EFE9D9] text-sm focus:outline-none focus:border-[#0F3D2E]"
-                  required
                 />
+                <p className="text-[11px] text-stone-500 mt-1">
+                  سيتم اعتمادها فور مراجعة الإدارة لهويتك
+                </p>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-[12px] bg-[#0F3D2E] text-white font-bold text-sm shadow-aygram hover:bg-[#155A44] transition-all cursor-pointer"
+                disabled={isSubmittingReset}
+                className="w-full py-2.5 px-4 rounded-[12px] bg-[#0F3D2E] text-white font-bold text-sm shadow-aygram hover:bg-[#155A44] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                حفظ كلمة المرور الجديدة
+                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                {isSubmittingReset ? 'جارٍ إرسال الطلب...' : 'إرسال طلب استعادة الحساب للإدارة'}
               </button>
             </form>
 
             <div className="pt-3 text-center border-t border-[#EFE9D9]">
               <button
+                type="button"
                 onClick={() => {
                   setMode('login');
                   setError('');

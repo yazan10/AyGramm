@@ -233,13 +233,6 @@ export const DirectMessagesView: React.FC = () => {
     const res = sendMessage(activeRecipient.id, messageInput.trim());
     if (res.success) {
       setMessageInput('');
-      // Simulate typing indicator from the recipient after 400ms
-      setTimeout(() => {
-        setIsTyping(true);
-      }, 400);
-      setTimeout(() => {
-        setIsTyping(false);
-      }, 1500);
     } else {
       setErrorBanner(res.error || 'تعذر إرسال الرسالة');
     }

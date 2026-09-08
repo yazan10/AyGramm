@@ -43,7 +43,7 @@ const COUNTRIES = [
 ];
 
 export const AuthView: React.FC = () => {
-  const { login, signup, resetPassword, setActiveView, rememberSession, setRememberSession } = useAyGram();
+  const { login, signup, requestPasswordReset, setActiveView, rememberSession, setRememberSession } = useAyGram();
 
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   
@@ -76,7 +76,10 @@ export const AuthView: React.FC = () => {
 
   // Forgot password fields
   const [forgotUsername, setForgotUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [forgotContact, setForgotContact] = useState('');
+  const [proofDetails, setProofDetails] = useState('');
+  const [desiredPassword, setDesiredPassword] = useState('');
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
 
   // Feedback states
   const [error, setError] = useState('');
@@ -188,19 +191,37 @@ export const AuthView: React.FC = () => {
   const handleResetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!forgotUsername.trim() || !newPassword) {
-      setError('يرجى إدخال اسم المستخدم وكلمة المرور الجديدة');
+    const cleanUser = forgotUsername.trim().replace(/^@/, '');
+    if (!cleanUser) {
+      setError('يرجى إدخال اسم المستخدم الخاص بحسابك');
       return;
     }
-    const res = resetPassword(forgotUsername.trim(), newPassword);
+    if (!proofDetails.trim() || proofDetails.trim().length < 5) {
+      setError('يرجى تقديم تفاصيل إثبات وتأكيد هوية امتلاك الحساب للمراجعة والاعتماد');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    const res = requestPasswordReset({
+      username: cleanUser,
+      contactInfo: forgotContact.trim(),
+      proofDetails: proofDetails.trim(),
+      newPassword: desiredPassword ? desiredPassword : undefined,
+    });
+    setIsSubmittingReset(false);
+
     if (res.success) {
-      setSuccessMsg('تم تعيين كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول.');
+      setSuccessMsg('تم إرسال طلب استعادة الحساب وتأكيد الملكية للإدارة بنجاح! سيتم مراجعة هويتك واعتماد التعيين.');
       setTimeout(() => {
         setMode('login');
         setSuccessMsg('');
-      }, 1500);
+        setForgotUsername('');
+        setForgotContact('');
+        setProofDetails('');
+        setDesiredPassword('');
+      }, 3500);
     } else {
-      setError(res.error || 'فشل تغيير كلمة المرور');
+      setError(res.error || 'تعذر إرسال طلب استعادة الحساب');
     }
   };
 
@@ -693,42 +714,87 @@ export const AuthView: React.FC = () => {
           </form>
         )}
 
-        {/* ======================= MODE: FORGOT PASSWORD ======================= */}
+        {/* ======================= MODE: FORGOT PASSWORD WITH IDENTITY PROOF ======================= */}
         {mode === 'forgot' && (
           <form onSubmit={handleResetSubmit} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-[#0F3D2E]/5 border border-[#0F3D2E]/10 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0F3D2E] text-[#D4AF37] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold text-[#0F3D2E]">طلب استعادة الحساب وإثبات الملكية</p>
+                <p className="text-[11px] text-stone-500">سيتم إرسال طلبك مباشرة للإدارة لمطابقة الهوية واعتماد كلمة المرور</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                اسم المستخدم
+                اسم المستخدم (اليوزر) الخاص بحسابك <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-bold">@</span>
+                <input
+                  type="text"
+                  required
+                  value={forgotUsername}
+                  onChange={(e) => setForgotUsername(e.target.value)}
+                  placeholder="username"
+                  dir="ltr"
+                  className="w-full py-2.5 pr-8 pl-3.5 rounded-xl border border-stone-200 text-xs sm:text-sm text-left focus:outline-none focus:border-[#0F3D2E]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                بيانات التواصل (رقم الهاتف أو البريد الإلكتروني المسجل للحساب)
               </label>
               <input
                 type="text"
-                required
-                value={forgotUsername}
-                onChange={(e) => setForgotUsername(e.target.value)}
-                placeholder="أدخل اسم المستخدم المسجل"
+                value={forgotContact}
+                onChange={(e) => setForgotContact(e.target.value)}
+                placeholder="مثال: +966... أو email@example.com"
                 className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:border-[#0F3D2E]"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                كلمة المرور الجديدة
+                تأكيد هوية امتلاك الحساب وإثبات الملكية <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                required
+                value={proofDetails}
+                onChange={(e) => setProofDetails(e.target.value)}
+                rows={3}
+                placeholder="اكتب أدلة تؤكد ملكيتك للحساب (مثل: كلمة مرور قديمة تتذكرها، تفاصيل نشاط أو أصدقاء، تاريخ التسجيل التقريبي، إلخ)..."
+                className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 text-xs focus:outline-none focus:border-[#0F3D2E] resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                كلمة المرور الجديدة المراد اعتمادها (اختياري)
               </label>
               <input
                 type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                value={desiredPassword}
+                onChange={(e) => setDesiredPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full py-2.5 px-3.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:border-[#0F3D2E]"
               />
+              <p className="text-[11px] text-stone-500 mt-1">
+                سيتم اعتمادها فور مراجعة الإدارة وتأكيد امتلاكك للحساب
+              </p>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-[#0F3D2E] text-[#D4AF37] font-bold text-xs hover:bg-[#155A44] transition-all shadow cursor-pointer active:scale-95"
+              disabled={isSubmittingReset}
+              className="w-full py-3 rounded-xl bg-[#0F3D2E] text-[#D4AF37] font-bold text-xs hover:bg-[#155A44] transition-all shadow cursor-pointer active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              تعيين كلمة المرور
+              <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+              {isSubmittingReset ? 'جارٍ إرسال الطلب...' : 'إرسال طلب استعادة الحساب وتأكيد الهوية للإدارة'}
             </button>
 
             <div className="text-center pt-2 text-xs text-stone-600">
